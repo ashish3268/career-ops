@@ -149,7 +149,7 @@ sequenceDiagram
 ```mermaid
 graph TD
     Start[node scan.mjs] --> Load[Load portals.yml]
-    Load --> Loop{For each company}
+    Load --> Loop[For each company]
     
     Loop --> Detect[Detect ATS Provider]
     Detect --> GH{Greenhouse?}
@@ -159,8 +159,11 @@ graph TD
     GH -->|Yes| GHProvider[providers/greenhouse.mjs]
     ASH -->|Yes| ASHProvider[providers/ashby.mjs]
     LEV -->|Yes| LEVProvider[providers/lever.mjs]
+    GH -->|No| ASH
+    ASH -->|No| LEV
+    LEV -->|No| Skip[Skip company]
     
-    GHProvider --> API[HTTP GET /api/v1/boards/{id}/jobs]
+    GHProvider --> API[HTTP GET API endpoint]
     ASHProvider --> API
     LEVProvider --> API
     
@@ -169,12 +172,14 @@ graph TD
     Dedup --> New{New jobs?}
     
     New -->|Yes| Append[Append to pipeline.md]
-    New -->|Yes| Log[Log to scan-history.tsv]
-    New -->|No| Loop
+    Append --> Log[Log to scan-history.tsv]
+    New -->|No| Next[Next company]
     
-    Append --> Loop
-    Log --> Loop
-    Loop --> End[Scan complete]
+    Log --> Next
+    Skip --> Next
+    Next --> Check{More companies?}
+    Check -->|Yes| Loop
+    Check -->|No| End[Scan complete]
     
     style Start fill:#4caf50,color:#fff
     style End fill:#4caf50,color:#fff
@@ -232,8 +237,8 @@ graph TB
 ## 6. File Structure & Data Flow
 
 ```mermaid
-graph LR
-    subgraph User Layer<br/>"Never auto-updated"
+graph TB
+    subgraph UserLayer["User Layer (Never auto-updated)"]
         CV[cv.md]
         Profile[config/profile.yml]
         CustomProfile[modes/_profile.md]
@@ -241,31 +246,34 @@ graph LR
         Digest[article-digest.md]
     end
     
-    subgraph System Layer<br/>"Auto-updatable"
+    subgraph SystemLayer["System Layer (Auto-updatable)"]
         SharedModes[modes/_shared.md]
-        OtherModes[modes/oferta.md<br/>modes/batch.md<br/>etc.]
+        OtherModes[modes/oferta.md, batch.md, etc.]
         Scripts[*.mjs scripts]
         Templates[templates/*]
     end
     
-    subgraph Data Layer<br/>"User data"
+    subgraph DataLayer["Data Layer (User data)"]
         Pipeline[data/pipeline.md]
         Tracker[data/applications.md]
         Reports[reports/*.md]
         PDFs[output/*.pdf]
     end
     
-    CV -.->|Read by| System Layer
-    Profile -.->|Read by| System Layer
-    CustomProfile -.->|Read by| System Layer
-    Portals -.->|Read by| System Layer
-    Digest -.->|Read by| System Layer
+    CV -.->|Read by| Scripts
+    Profile -.->|Read by| Scripts
+    CustomProfile -.->|Read by| Scripts
+    Portals -.->|Read by| Scripts
+    Digest -.->|Read by| Scripts
     
-    System Layer -->|Generates| Data Layer
+    Scripts -->|Generates| Reports
+    Scripts -->|Generates| PDFs
+    Scripts -->|Generates| Pipeline
+    Scripts -->|Updates| Tracker
     
-    style User Layer fill:#e8f5e9
-    style System Layer fill:#fff3e0
-    style Data Layer fill:#e3f2fd
+    style UserLayer fill:#e8f5e9
+    style SystemLayer fill:#fff3e0
+    style DataLayer fill:#e3f2fd
 ```
 
 ---
